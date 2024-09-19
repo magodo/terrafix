@@ -50,7 +50,7 @@ func NewRootState(tf *tfexec.Terraform, path string) (*RootState, error) {
 
 	rootState.RootPath = path
 
-	tfVersion, pVersions, err := tf.Version(ctx, false)
+	tfVersion, _, err := tf.Version(ctx, false)
 	if err != nil {
 		return nil, fmt.Errorf("terraform version failed: %v", err)
 	}
@@ -69,14 +69,12 @@ func NewRootState(tf *tfexec.Terraform, path string) (*RootState, error) {
 		return nil, fmt.Errorf("terraform providers schema failed: %v", err)
 	}
 	providerSchemas := map[tfaddr.Provider]*tfschema.ProviderSchema{}
-	for paddr := range pVersions {
+
+	for paddr, providerSchemaJSON := range providerSchemasJSON.Schemas {
 		paddr := tfaddr.MustParseProviderSource(paddr)
-		providerSchemaJSON := providerSchemasJSON.Schemas[paddr.String()]
 		providerSchema := tfschema.ProviderSchemaFromJson(providerSchemaJSON, paddr)
 
-		paddr = adjustProviderAddr(paddr)
-
-		providerSchemas[paddr] = providerSchema
+		providerSchemas[adjustProviderAddr(paddr)] = providerSchema
 	}
 	rootState.ProviderSchemas = providerSchemas
 

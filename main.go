@@ -9,14 +9,13 @@ import (
 	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/hcl-lang/lang"
 	"github.com/hashicorp/hcl-lang/reference"
-	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/terraform-exec/tfexec"
 	"github.com/magodo/terrafix/internal/state"
 	"github.com/magodo/terrafix/internal/terraform/find"
 )
 
 func main() {
-	rootModPath := "internal/state/testdata/simple_module"
+	rootModPath := "testdata/module"
 	tfpath, err := find.FindTF(context.Background(), version.MustConstraints(version.NewConstraint(">=1.0.0")))
 	if err != nil {
 		log.Fatalf("finding terraform executable: %v", err)
@@ -45,6 +44,7 @@ func main() {
 				fmt.Printf("\t- (Path) %s \n", ref.Range)
 			}
 
+			fmt.Println("\t\tTargets:")
 			targets, err := d.ReferenceTargetsForOriginAtPos(lang.Path{Path: modPath, LanguageID: "terraform"}, ref.OriginRange().Filename, ref.OriginRange().Start)
 			if err != nil {
 				log.Fatal(err)
@@ -56,12 +56,6 @@ func main() {
 
 		fmt.Println("Targets:")
 		printTargetRefs(1, modState.TargetRefs)
-	}
-
-	fmt.Println("Adhoc")
-	origins := d.ReferenceOriginsTargetingPos(lang.Path{Path: rootModPath, LanguageID: "terraform"}, "main.tf", hcl.Pos{Line: 7, Column: 3, Byte: 104})
-	for _, ref := range origins {
-		fmt.Printf("\t- %s %s\n", ref.Path, ref.Range)
 	}
 }
 
