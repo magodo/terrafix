@@ -18,7 +18,7 @@ import (
 )
 
 func TestRootStateDecoder(t *testing.T) {
-	rootModPath := "testdata/module"
+	rootModPath := "testdata/simple_module"
 	tfpath, err := find.FindTF(context.Background(), version.MustConstraints(version.NewConstraint(">=1.0.0")))
 	require.NoError(t, err)
 	tf, err := tfexec.NewTerraform(rootModPath, tfpath)
