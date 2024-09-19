@@ -191,6 +191,7 @@ func (s *RootState) PathContext(path lang.Path) (*decoder.PathContext, error) {
 	if err != nil {
 		return nil, err
 	}
+	modState.Schema = schema
 
 	pathCtx := &decoder.PathContext{
 		Schema:           schema,

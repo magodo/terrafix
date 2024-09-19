@@ -1,6 +1,6 @@
 module github.com/magodo/terrafix
 
-go 1.22.5
+go 1.23.1
 
 require (
 	github.com/hashicorp/go-multierror v1.1.1
