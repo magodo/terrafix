@@ -1,0 +1,66 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/hashicorp/go-version"
+	"github.com/hashicorp/hcl-lang/lang"
+	"github.com/hashicorp/hcl-lang/reference"
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/terraform-exec/tfexec"
+	"github.com/magodo/terrafix/internal/state"
+	"github.com/magodo/terrafix/internal/terraform/find"
+)
+
+func main() {
+	rootModPath := "internal/state/testdata/module"
+	tfpath, err := find.FindTF(context.Background(), version.MustConstraints(version.NewConstraint(">=1.0.0")))
+	if err != nil {
+		log.Fatalf("finding terraform executable: %v", err)
+	}
+	tf, err := tfexec.NewTerraform(rootModPath, tfpath)
+	if err != nil {
+		log.Fatalf("error running NewTerraform: %s", err)
+	}
+	root, err := state.NewRootState(tf, rootModPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	d := root.Decoder()
+
+	for modPath, modState := range root.ModuleStates {
+		fmt.Printf("\nModule path: %s\n\n", modPath)
+		fmt.Println("Origins:")
+		for _, ref := range modState.OriginRefs {
+			switch ref := ref.(type) {
+			case reference.LocalOrigin:
+				fmt.Printf("\t- (Local) %s %s\n", ref.Addr, ref.Range)
+			case reference.DirectOrigin:
+				fmt.Printf("\t- (Direct) %s\n", ref.Range)
+			case reference.PathOrigin:
+				fmt.Printf("\t- (Path) %s \n", ref.Range)
+			}
+
+			targets, err := d.ReferenceTargetsForOriginAtPos(lang.Path{Path: modPath, LanguageID: "terraform"}, ref.OriginRange().Filename, ref.OriginRange().Start)
+			if err != nil {
+				log.Fatal(err)
+			}
+			for _, ref := range targets {
+				fmt.Printf("\t\t - %s %s\n", ref.Path, ref.Range)
+			}
+		}
+		fmt.Println("Targets:")
+		for _, ref := range modState.TargetRefs {
+			fmt.Printf("\t - %s %s %s\n", ref.Addr, ref.RangePtr, ref.Name)
+		}
+	}
+
+	fmt.Println("Adhoc")
+	origins := d.ReferenceOriginsTargetingPos(lang.Path{Path: rootModPath, LanguageID: "terraform"}, "main.tf", hcl.Pos{Line: 7, Column: 3, Byte: 104})
+	for _, ref := range origins {
+		fmt.Printf("\t- %s %s\n", ref.Path, ref.Range)
+	}
+}
