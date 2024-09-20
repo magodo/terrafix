@@ -1,9 +1,11 @@
 package filesystem
 
 import (
+	"fmt"
 	"io"
 	"io/fs"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -12,7 +14,7 @@ var _ FS = &MemFS{}
 
 type MemFS struct {
 	basePath string
-	*MemDir
+	*memDir
 }
 
 func (m *MemFS) getEntry(name string) (MemEntry, error) {
@@ -20,24 +22,31 @@ func (m *MemFS) getEntry(name string) (MemEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	segs := filepath.SplitList(name)
-	var entry MemEntry = m.MemDir
-	for _, seg := range segs {
-		dir, ok := entry.(*MemDir)
+
+	if name == "." {
+		return m.memDir, nil
+	}
+
+	opaths := []string{m.basePath}
+	paths := strings.Split(name, string(filepath.Separator))
+	var entry MemEntry = m.memDir
+	for _, path := range paths {
+		opaths = append(opaths, path)
+		dir, ok := entry.(*memDir)
 		if !ok {
-			return nil, fs.ErrNotExist
+			return nil, fmt.Errorf("%s is not a dir", filepath.Join(opaths...))
 		}
-		children := dir.GetChildren()
+		children := dir.getChildren()
 		ok = false
 		for _, child := range children {
-			if child.Name() == seg {
+			if child.Name() == path {
 				entry = child
 				ok = true
 				break
 			}
 		}
 		if !ok {
-			return nil, fs.ErrNotExist
+			return nil, fmt.Errorf("%s: %w", filepath.Join(opaths...), fs.ErrNotExist)
 		}
 	}
 	return entry, nil
@@ -48,10 +57,11 @@ func (m *MemFS) Open(name string) (fs.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	file, ok := entry.(*MemFile)
+	file, ok := entry.(*memFile)
 	if !ok {
 		return nil, fs.ErrNotExist
 	}
+	file.resetPtr()
 	return file, nil
 }
 
@@ -60,12 +70,12 @@ func (m *MemFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	dir, ok := entry.(*MemDir)
+	dir, ok := entry.(*memDir)
 	if !ok {
 		return nil, fs.ErrNotExist
 	}
 	var out []fs.DirEntry
-	for _, child := range dir.GetChildren() {
+	for _, child := range dir.getChildren() {
 		out = append(out, child)
 	}
 	return out, nil
@@ -76,10 +86,12 @@ func (m *MemFS) ReadFile(name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	f, ok := entry.(*MemFile)
+	f, ok := entry.(*memFile)
 	if !ok {
 		return nil, fs.ErrNotExist
 	}
+
+	f.resetPtr()
 	return io.ReadAll(f)
 }
 
@@ -96,40 +108,40 @@ type MemEntry interface {
 	fs.DirEntry
 }
 
-type MemDir struct {
+type memDir struct {
 	fileinfo FileInfo
 	children []MemEntry
 	mu       sync.RWMutex
 }
 
-func (*MemDir) isMemDirEntry() {}
+func (*memDir) isMemDirEntry() {}
 
-func (m *MemDir) Name() string {
+func (m *memDir) Name() string {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
 	return m.fileinfo.name
 }
 
-func (m *MemDir) IsDir() bool {
+func (m *memDir) IsDir() bool {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
 	return m.fileinfo.isDir
 }
 
-func (m *MemDir) Type() fs.FileMode {
+func (m *memDir) Type() fs.FileMode {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
 	return m.fileinfo.mode
 }
 
-func (m *MemDir) Info() (fs.FileInfo, error) {
+func (m *memDir) Info() (fs.FileInfo, error) {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
 	// return the info when this entry is read
 	return m.fileinfo, nil
 }
 
-func (m *MemDir) GetChildren() []MemEntry {
+func (m *memDir) getChildren() []MemEntry {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
 
@@ -140,51 +152,71 @@ func (m *MemDir) GetChildren() []MemEntry {
 	return out
 }
 
-type MemFile struct {
+type memFile struct {
 	fileinfo FileInfo
 	content  []byte
 	mu       sync.RWMutex
+
+	ptr   int
+	ptrMu sync.Mutex
 }
 
-func (*MemFile) isMemDirEntry() {}
+func (*memFile) isMemDirEntry() {}
 
-func (m *MemFile) Name() string {
+func (m *memFile) Name() string {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
 	return m.fileinfo.name
 }
 
-func (m *MemFile) IsDir() bool {
+func (m *memFile) IsDir() bool {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
 	return m.fileinfo.isDir
 }
 
-func (m *MemFile) Type() fs.FileMode {
+func (m *memFile) Type() fs.FileMode {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
 	return m.fileinfo.mode
 }
 
-func (m *MemFile) Info() (fs.FileInfo, error) {
+func (m *memFile) Info() (fs.FileInfo, error) {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
 	// return the info when this entry is read
 	return m.fileinfo, nil
 }
 
-func (m *MemFile) Stat() (fs.FileInfo, error) {
+func (m *memFile) Stat() (fs.FileInfo, error) {
 	return m.Info()
 }
 
-func (m *MemFile) Read(b []byte) (int, error) {
+func (m *memFile) resetPtr() {
+	m.ptrMu.Lock()
+	defer m.ptrMu.Unlock()
+	m.ptr = 0
+}
+
+func (m *memFile) Read(b []byte) (int, error) {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
 
-	return copy(b, m.content), nil
+	m.ptrMu.Lock()
+	defer m.ptrMu.Unlock()
+
+	n := copy(b, m.content[m.ptr:])
+	m.ptr += n
+	if m.ptr == len(m.content) {
+		return n, io.EOF
+	}
+	return n, nil
 }
 
-func (m *MemFile) Close() error {
+func (m *memFile) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	return nil
 }
 
@@ -197,7 +229,7 @@ type FileInfo struct {
 }
 
 func NewFileInfo(info fs.FileInfo) FileInfo {
-	return FileInfo {
+	return FileInfo{
 		name:    info.Name(),
 		size:    info.Size(),
 		mode:    info.Mode(),

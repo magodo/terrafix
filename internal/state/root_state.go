@@ -43,7 +43,7 @@ type RootState struct {
 	ModuleStates map[string]*ModuleState
 }
 
-func NewRootState(tf *tfexec.Terraform, fs *filesystem.FS, path string) (*RootState, error) {
+func NewRootState(tf *tfexec.Terraform, fs filesystem.FS, path string) (*RootState, error) {
 	ctx := context.Background()
 	var rootState RootState
 

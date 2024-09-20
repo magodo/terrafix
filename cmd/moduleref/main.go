@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/hcl-lang/lang"
 	"github.com/hashicorp/hcl-lang/reference"
 	"github.com/hashicorp/terraform-exec/tfexec"
+	"github.com/magodo/terrafix/internal/filesystem"
 	"github.com/magodo/terrafix/internal/state"
 	"github.com/magodo/terrafix/internal/terraform/find"
 )
@@ -27,7 +28,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("error running NewTerraform: %s", err)
 	}
-	root, err := state.NewRootState(tf, rootModPath)
+	fs, err := filesystem.NewMemFS(rootModPath)
+	if err != nil {
+		log.Fatalf("error new memory filesystem: %s", err)
+	}
+	root, err := state.NewRootState(tf, fs, rootModPath)
 	if err != nil {
 		log.Fatal(err)
 	}

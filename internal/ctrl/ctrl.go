@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"os"
 	"path/filepath"
 
 	"github.com/hashicorp/hcl-lang/lang"
@@ -14,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-exec/tfexec"
 	tfaddr "github.com/hashicorp/terraform-registry-address"
 	tfschema "github.com/hashicorp/terraform-schema/schema"
+	"github.com/magodo/terrafix/internal/filesystem"
 	"github.com/magodo/terrafix/internal/fixer"
 	"github.com/magodo/terrafix/internal/state"
 	"github.com/magodo/terrafix/internal/writer"
@@ -21,6 +21,7 @@ import (
 
 type Controller struct {
 	tf        *tfexec.Terraform
+	fs        *filesystem.MemFS
 	psch      *tfschema.ProviderSchema
 	path      string
 	rootState *state.RootState
@@ -33,6 +34,12 @@ func NewController(tf *tfexec.Terraform, path string, paddr string, fixer fixer.
 		path:  path,
 		fixer: fixer,
 	}
+
+	fs, err := filesystem.NewMemFS(path)
+	if err != nil {
+		return nil, fmt.Errorf("error new memory filesystem: %v", err)
+	}
+	ctrl.fs = fs
 
 	if err := ctrl.UpdateRootState(); err != nil {
 		return nil, err
@@ -52,7 +59,7 @@ func NewController(tf *tfexec.Terraform, path string, paddr string, fixer fixer.
 }
 
 func (ctrl *Controller) UpdateRootState() error {
-	rootState, err := state.NewRootState(ctrl.tf, ctrl.path)
+	rootState, err := state.NewRootState(ctrl.tf, ctrl.fs, ctrl.path)
 	if err != nil {
 		return err
 	}
@@ -117,7 +124,7 @@ func (ctrl *Controller) FixReferenceOrigins() error {
 
 		for filename, updates := range updatesMap {
 			fpath := filepath.Join(modPath, filename)
-			b, err := os.ReadFile(fpath)
+			b, err := ctrl.fs.ReadFile(fpath)
 			if err != nil {
 				return fmt.Errorf("reading %s: %v", fpath, err)
 			}
@@ -125,7 +132,10 @@ func (ctrl *Controller) FixReferenceOrigins() error {
 			if err != nil {
 				return fmt.Errorf("failed to update content for %s: %v", fpath, err)
 			}
-			fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
+			if err := ctrl.fs.WriteFile(fpath, nb, 0644); err != nil {
+				return fmt.Errorf("writing back the new content: %v", err)
+			}
+			//fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
 		}
 	}
 
@@ -170,7 +180,7 @@ func (ctrl *Controller) FixDefinition() error {
 
 		for filename, updates := range updatesMap {
 			fpath := filepath.Join(modPath, filename)
-			b, err := os.ReadFile(fpath)
+			b, err := ctrl.fs.ReadFile(fpath)
 			if err != nil {
 				return fmt.Errorf("reading %s: %v", fpath, err)
 			}
@@ -178,7 +188,10 @@ func (ctrl *Controller) FixDefinition() error {
 			if err != nil {
 				return fmt.Errorf("failed to update content for %s: %v", fpath, err)
 			}
-			fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
+			if err := ctrl.fs.WriteFile(fpath, nb, 0644); err != nil {
+				return fmt.Errorf("writing back the new content: %v", err)
+			}
+			//fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
 		}
 	}
 

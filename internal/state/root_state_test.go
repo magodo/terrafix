@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/hcl-lang/reference"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/terraform-exec/tfexec"
+	"github.com/magodo/terrafix/internal/filesystem"
 	"github.com/magodo/terrafix/internal/state"
 	"github.com/magodo/terrafix/internal/terraform/find"
 	"github.com/stretchr/testify/require"
@@ -23,7 +24,11 @@ func TestRootStateDecoder(t *testing.T) {
 	require.NoError(t, err)
 	tf, err := tfexec.NewTerraform(rootModPath, tfpath)
 	require.NoError(t, err)
-	root, err := state.NewRootState(tf, rootModPath)
+
+	fs, err := filesystem.NewMemFS(rootModPath)
+	require.NoError(t, err)
+
+	root, err := state.NewRootState(tf, fs, rootModPath)
 	require.NoError(t, err)
 
 	// Two module states are expected
