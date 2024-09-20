@@ -3,6 +3,8 @@ package ctrl
 import (
 	"fmt"
 	"maps"
+	"os"
+	"path/filepath"
 
 	"github.com/hashicorp/hcl-lang/lang"
 	"github.com/hashicorp/hcl-lang/reference"
@@ -11,6 +13,7 @@ import (
 	tfschema "github.com/hashicorp/terraform-schema/schema"
 	"github.com/magodo/terrafix/internal/fixer"
 	"github.com/magodo/terrafix/internal/state"
+	"github.com/magodo/terrafix/internal/writer"
 )
 
 type Controller struct {
@@ -69,7 +72,6 @@ func (ctrl *Controller) FixReferenceOrigins() error {
 		// Combine origins belong to the same targeting to the same resource/data source into one request
 		reqs := map[ReqType]fixer.FixReferenceOriginsRequest{}
 		for _, origin := range origins {
-			//fmt.Printf("Origin: %s (%s)\n", origin.Address(), origin.Range)
 			reqType := ReqType{
 				BlockType: fixer.BlockTypeResource,
 			}
@@ -86,29 +88,41 @@ func (ctrl *Controller) FixReferenceOrigins() error {
 					BlockType:        reqType.BlockType,
 					BlockName:        reqType.BlockName,
 					Version:          0,
-					ReferenceOrigins: []fixer.ReferenceOrigin{},
+					ReferenceOrigins: []fixer.HCLContent{},
 				}
 			}
-			req.ReferenceOrigins = append(req.ReferenceOrigins, fixer.ReferenceOrigin{
-				Addr:    origin.Addr,
-				Range:   origin.Range,
-				Content: origin.Range.SliceBytes(modState.Files[origin.Range.Filename].Bytes),
+			req.ReferenceOrigins = append(req.ReferenceOrigins, fixer.HCLContent{
+				Range:      origin.Range,
+				RawContent: origin.Range.SliceBytes(modState.Files[origin.Range.Filename].Bytes),
 			})
 			reqs[reqType] = req
 		}
 
-		var updatedOrigins []fixer.ReferenceOrigin
+		updatesMap := map[string][]writer.Update{}
 		for _, req := range reqs {
 			resp := ctrl.fixer.FixReferenceOrigins(req)
 			for _, origin := range resp.ReferenceOrigins {
-				updatedOrigins = append(updatedOrigins, origin)
+				updatesMap[origin.Range.Filename] = append(updatesMap[origin.Range.Filename], writer.Update{
+					Range:   origin.Range,
+					Content: origin.RawContent,
+				})
 			}
 		}
 
-		for _, origin := range updatedOrigins {
-			fmt.Printf("Change range: %s, content: %s\n", origin.Range, string(origin.Content))
+		for filename, updates := range updatesMap {
+			fpath := filepath.Join(modPath, filename)
+			b, err := os.ReadFile(fpath)
+			if err != nil {
+				return fmt.Errorf("reading %s: %v", fpath, err)
+			}
+			nb, err := writer.UpdateContent(b, updates)
+			if err != nil {
+				return fmt.Errorf("failed to update content for %s: %v", fpath, err)
+			}
+			fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
 		}
 	}
+
 	return nil
 }
 

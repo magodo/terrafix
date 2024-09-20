@@ -1,7 +1,6 @@
 package fixer
 
 import (
-	"github.com/hashicorp/hcl-lang/lang"
 	"github.com/hashicorp/hcl/v2"
 )
 
@@ -18,31 +17,28 @@ const (
 	BlockTypeDataSource BlockType = 2
 )
 
+type HCLContent struct {
+	RawContent []byte
+	Range      hcl.Range
+}
+
 type FixReferenceOriginsRequest struct {
 	BlockType        BlockType
 	BlockName        string
 	Version          int
-	ReferenceOrigins []ReferenceOrigin
+	ReferenceOrigins []HCLContent
 }
 
 type FixReferenceOriginsResponse struct {
-	ReferenceOrigins []ReferenceOrigin
-}
-
-type ReferenceOrigin struct {
-	Addr    lang.Address
-	Range   hcl.Range
-	Content []byte
+	ReferenceOrigins []HCLContent
 }
 
 type FixConfigRequest struct {
 	TypeName string
 	Version  int
-	Range    hcl.Range
-	Content  []byte
+	Config   HCLContent
 }
 
 type FixConfigResponse struct {
-	Range   hcl.Range
-	Content []byte
+	Config HCLContent
 }

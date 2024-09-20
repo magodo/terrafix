@@ -13,10 +13,10 @@ func (d DummyFixer) FixConfig(req FixConfigRequest) FixConfigResponse {
 
 // FixReferenceOrigins implements Fixer.
 func (d DummyFixer) FixReferenceOrigins(req FixReferenceOriginsRequest) FixReferenceOriginsResponse {
-	var origins []ReferenceOrigin
+	var contents []HCLContent
 	for _, origin := range req.ReferenceOrigins {
-		origin.Content = []byte(fmt.Sprintf(`"${%s}-updated"`, origin.Content))
-		origins = append(origins, origin)
+		origin.RawContent = []byte(fmt.Sprintf(`"${%s}-updated"`, origin.RawContent))
+		contents = append(contents, origin)
 	}
-	return FixReferenceOriginsResponse{ReferenceOrigins: origins}
+	return FixReferenceOriginsResponse{ReferenceOrigins: contents}
 }
