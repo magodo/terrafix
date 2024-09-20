@@ -16,6 +16,7 @@ import (
 	tfmodule "github.com/hashicorp/terraform-schema/module"
 	"github.com/hashicorp/terraform-schema/registry"
 	tfschema "github.com/hashicorp/terraform-schema/schema"
+	"github.com/magodo/terrafix/internal/filesystem"
 	"github.com/magodo/terrafix/internal/terraform/datadir"
 )
 
@@ -42,7 +43,7 @@ type RootState struct {
 	ModuleStates map[string]*ModuleState
 }
 
-func NewRootState(tf *tfexec.Terraform, path string) (*RootState, error) {
+func NewRootState(tf *tfexec.Terraform, fs *filesystem.FS, path string) (*RootState, error) {
 	ctx := context.Background()
 	var rootState RootState
 
@@ -88,7 +89,7 @@ func NewRootState(tf *tfexec.Terraform, path string) (*RootState, error) {
 
 	// Add module states
 	rootState.ModuleStates = map[string]*ModuleState{}
-	if err := rootState.AddModuleState(path); err != nil {
+	if err := rootState.AddModuleState(fs, path); err != nil {
 		return nil, fmt.Errorf("add module state for %q: %v", path, err)
 	}
 
