@@ -6,7 +6,7 @@ import (
 
 type Fixer interface {
 	FixReferenceOrigins(FixReferenceOriginsRequest) FixReferenceOriginsResponse
-	FixConfig(FixConfigRequest) FixConfigResponse
+	FixDefinition(FixDefinitionRequest) FixDefinitionResponse
 }
 
 type BlockType int
@@ -30,15 +30,18 @@ type FixReferenceOriginsRequest struct {
 }
 
 type FixReferenceOriginsResponse struct {
+	Error            *string
 	ReferenceOrigins []HCLContent
 }
 
-type FixConfigRequest struct {
-	TypeName string
-	Version  int
-	Config   HCLContent
+type FixDefinitionRequest struct {
+	BlockType  BlockType
+	BlockName  string
+	Version    int
+	Definition HCLContent
 }
 
-type FixConfigResponse struct {
-	Config HCLContent
+type FixDefinitionResponse struct {
+	Error      *string
+	Definition HCLContent
 }

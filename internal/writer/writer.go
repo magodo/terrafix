@@ -47,5 +47,6 @@ func UpdateContent(b []byte, updates Updates) ([]byte, error) {
 		nb = append(nb, update.Content...)
 		startOffset = update.Range.End.Byte
 	}
+	nb = append(nb, b[startOffset:]...)
 	return nb, nil
 }

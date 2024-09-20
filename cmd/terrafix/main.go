@@ -34,4 +34,12 @@ func main() {
 	if err := ctrl.FixReferenceOrigins(); err != nil {
 		log.Fatal(err)
 	}
+
+	if err := ctrl.UpdateRootState(); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := ctrl.FixDefinition(); err != nil {
+		log.Fatal(err)
+	}
 }
