@@ -61,8 +61,7 @@ func (m *MemFS) Open(name string) (fs.File, error) {
 	if !ok {
 		return nil, fs.ErrNotExist
 	}
-	file.resetPtr()
-	return file, nil
+	return file.buildHandle(), nil
 }
 
 func (m *MemFS) ReadDir(name string) ([]fs.DirEntry, error) {
@@ -91,8 +90,7 @@ func (m *MemFS) ReadFile(name string) ([]byte, error) {
 		return nil, fs.ErrNotExist
 	}
 
-	f.resetPtr()
-	return io.ReadAll(f)
+	return io.ReadAll(f.buildHandle())
 }
 
 func (m *MemFS) Stat(name string) (fs.FileInfo, error) {
@@ -152,13 +150,11 @@ func (m *memDir) getChildren() []MemEntry {
 	return out
 }
 
+// memFile is the origin of the file, used for generating the memFileHandler, or writing
 type memFile struct {
 	fileinfo FileInfo
 	content  []byte
 	mu       sync.RWMutex
-
-	ptr   int
-	ptrMu sync.Mutex
 }
 
 func (*memFile) isMemDirEntry() {}
@@ -188,23 +184,36 @@ func (m *memFile) Info() (fs.FileInfo, error) {
 	return m.fileinfo, nil
 }
 
-func (m *memFile) Stat() (fs.FileInfo, error) {
-	return m.Info()
-}
-
-func (m *memFile) resetPtr() {
-	m.ptrMu.Lock()
-	defer m.ptrMu.Unlock()
-	m.ptr = 0
-}
-
-func (m *memFile) Read(b []byte) (int, error) {
+func (m *memFile) buildHandle() *memFileHandle {
 	m.mu.RLocker().Lock()
 	defer m.mu.RLocker().Unlock()
+	content := make([]byte, len(m.content))
+	copy(content, m.content)
+	return &memFileHandle{
+		content:  content,
+		fileinfo: m.fileinfo,
+	}
+}
 
-	m.ptrMu.Lock()
-	defer m.ptrMu.Unlock()
+// memFileHandle is used for open&read
+// (thread unsafe)
+type memFileHandle struct {
+	// We didn't use a pointer of []byte pointing to the origin here.
+	// This means the content is fixed once this Handle is created (on Open).
+	content  []byte
+	fileinfo FileInfo
+	closed   bool
+	ptr      int
+}
 
+func (m *memFileHandle) Stat() (fs.FileInfo, error) {
+	return m.fileinfo, nil
+}
+
+func (m *memFileHandle) Read(b []byte) (int, error) {
+	if m.closed {
+		return 0, fmt.Errorf("file closed")
+	}
 	n := copy(b, m.content[m.ptr:])
 	m.ptr += n
 	if m.ptr == len(m.content) {
@@ -213,10 +222,8 @@ func (m *memFile) Read(b []byte) (int, error) {
 	return n, nil
 }
 
-func (m *memFile) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
+func (m *memFileHandle) Close() error {
+	m.closed = true
 	return nil
 }
 
