@@ -34,7 +34,7 @@ func (d DummyFixer) FixDefinition(req FixDefinitionRequest) FixDefinitionRespons
 func (d DummyFixer) FixReferenceOrigins(req FixReferenceOriginsRequest) FixReferenceOriginsResponse {
 	var contents []HCLContent
 	for _, origin := range req.ReferenceOrigins {
-		origin.RawContent = []byte(fmt.Sprintf(`"${%s}-updated"`, origin.RawContent))
+		origin.RawContent = []byte(fmt.Sprintf(`"${%s.undefined}"`, origin.RawContent))
 		contents = append(contents, origin)
 	}
 	return FixReferenceOriginsResponse{ReferenceOrigins: contents}
