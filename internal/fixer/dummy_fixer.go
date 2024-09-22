@@ -14,28 +14,28 @@ type DummyFixer struct{}
 var _ Fixer = DummyFixer{}
 
 func (d DummyFixer) FixDefinition(req FixDefinitionRequest) FixDefinitionResponse {
-	sf, diags := hclsyntax.ParseConfig(req.Definition.RawContent, "", hcl.InitialPos)
+	sf, diags := hclsyntax.ParseConfig(req.RawContent, "", hcl.InitialPos)
 	if diags.HasErrors() {
 		err := diags.Error()
 		return FixDefinitionResponse{Error: &err}
 	}
 	_ = sf
 
-	wf, diags := hclwrite.ParseConfig(req.Definition.RawContent, "", hcl.InitialPos)
+	wf, diags := hclwrite.ParseConfig(req.RawContent, "", hcl.InitialPos)
 	if diags.HasErrors() {
 		err := diags.Error()
 		return FixDefinitionResponse{Error: &err}
 	}
 	wf.Body().Blocks()[0].Body().SetAttributeValue("undefined", cty.StringVal("foo"))
 
-	return FixDefinitionResponse{Definition: HCLContent{RawContent: wf.Bytes(), Range: req.Definition.Range}}
+	return FixDefinitionResponse{RawContent: wf.Bytes()}
 }
 
 func (d DummyFixer) FixReferenceOrigins(req FixReferenceOriginsRequest) FixReferenceOriginsResponse {
-	var contents []HCLContent
-	for _, origin := range req.ReferenceOrigins {
-		origin.RawContent = []byte(fmt.Sprintf(`"${%s.undefined}"`, origin.RawContent))
+	var contents [][]byte
+	for _, origin := range req.RawContents {
+		origin = []byte(fmt.Sprintf(`"${%s.undefined}"`, origin))
 		contents = append(contents, origin)
 	}
-	return FixReferenceOriginsResponse{ReferenceOrigins: contents}
+	return FixReferenceOriginsResponse{RawContents: contents}
 }

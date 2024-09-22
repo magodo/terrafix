@@ -81,6 +81,7 @@ func (ctrl *Controller) FixReferenceOrigins() error {
 
 		// Combine origins belong to the same targeting to the same resource/data source into one request
 		reqs := map[ReqType]fixer.FixReferenceOriginsRequest{}
+		originRangesMap := map[ReqType][]hcl.Range{}
 		for _, origin := range origins {
 			reqType := ReqType{
 				BlockType: fixer.BlockTypeResource,
@@ -95,29 +96,37 @@ func (ctrl *Controller) FixReferenceOrigins() error {
 			req, ok := reqs[reqType]
 			if !ok {
 				req = fixer.FixReferenceOriginsRequest{
-					BlockType:        reqType.BlockType,
-					BlockName:        reqType.BlockName,
-					Version:          0,
-					ReferenceOrigins: []fixer.HCLContent{},
+					BlockType:   reqType.BlockType,
+					BlockName:   reqType.BlockName,
+					Version:     0,
+					RawContents: [][]byte{},
 				}
 			}
-			req.ReferenceOrigins = append(req.ReferenceOrigins, fixer.HCLContent{
-				Range:      origin.Range,
-				RawContent: origin.Range.SliceBytes(modState.Files[origin.Range.Filename].Bytes),
-			})
+			req.RawContents = append(req.RawContents, origin.Range.SliceBytes(modState.Files[origin.Range.Filename].Bytes))
 			reqs[reqType] = req
+
+			originRanges, ok := originRangesMap[reqType]
+			if !ok {
+				originRanges = []hcl.Range{}
+			}
+			originRanges = append(originRanges, origin.Range)
+			originRangesMap[reqType] = originRanges
+
 		}
 
 		updatesMap := map[string][]writer.Update{}
-		for _, req := range reqs {
+		for reqtype, req := range reqs {
 			resp := ctrl.fixer.FixReferenceOrigins(req)
 			if resp.Error != nil {
 				return errors.New(*resp.Error)
 			}
-			for _, origin := range resp.ReferenceOrigins {
-				updatesMap[origin.Range.Filename] = append(updatesMap[origin.Range.Filename], writer.Update{
-					Range:   origin.Range,
-					Content: origin.RawContent,
+			originRanges := originRangesMap[reqtype]
+
+			for i, origin := range resp.RawContents {
+				originRange := originRanges[i]
+				updatesMap[originRange.Filename] = append(updatesMap[originRange.Filename], writer.Update{
+					Range:   originRange,
+					Content: origin,
 				})
 			}
 		}
@@ -154,11 +163,8 @@ func (ctrl *Controller) FixDefinition() error {
 			filename := blk.Range().Filename
 			f := modState.Files[filename]
 			req := fixer.FixDefinitionRequest{
-				BlockName: blk.Labels[0],
-				Definition: fixer.HCLContent{
-					RawContent: blk.Range().SliceBytes(f.Bytes),
-					Range:      blk.Range(),
-				},
+				BlockName:  blk.Labels[0],
+				RawContent: blk.Range().SliceBytes(f.Bytes),
 			}
 			switch blk.Type {
 			case "data":
@@ -173,8 +179,8 @@ func (ctrl *Controller) FixDefinition() error {
 				return errors.New(*resp.Error)
 			}
 			updatesMap[filename] = append(updatesMap[filename], writer.Update{
-				Range:   resp.Definition.Range,
-				Content: resp.Definition.RawContent,
+				Range:   blk.Range(),
+				Content: resp.RawContent,
 			})
 		}
 

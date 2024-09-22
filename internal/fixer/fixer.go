@@ -1,9 +1,5 @@
 package fixer
 
-import (
-	"github.com/hashicorp/hcl/v2"
-)
-
 type Fixer interface {
 	FixReferenceOrigins(FixReferenceOriginsRequest) FixReferenceOriginsResponse
 	FixDefinition(FixDefinitionRequest) FixDefinitionResponse
@@ -17,31 +13,30 @@ const (
 	BlockTypeDataSource BlockType = 2
 )
 
-type HCLContent struct {
-	RawContent []byte
-	Range      hcl.Range
-}
-
 type FixReferenceOriginsRequest struct {
-	BlockType        BlockType
-	BlockName        string
-	Version          int
-	ReferenceOrigins []HCLContent
+	BlockType BlockType
+	BlockName string
+	Version   int
+	// The raw HCL contents of each reference origin
+	RawContents [][]byte
 }
 
 type FixReferenceOriginsResponse struct {
-	Error            *string
-	ReferenceOrigins []HCLContent
+	Error *string
+	// The updated raw HCL contents of each reference origin
+	RawContents [][]byte
 }
 
 type FixDefinitionRequest struct {
-	BlockType  BlockType
-	BlockName  string
-	Version    int
-	Definition HCLContent
+	BlockType BlockType
+	BlockName string
+	Version   int
+	// The raw HCL content of this block definition
+	RawContent []byte
 }
 
 type FixDefinitionResponse struct {
-	Error      *string
-	Definition HCLContent
+	Error *string
+	// The updated raw HCL content of this block definition
+	RawContent []byte
 }
