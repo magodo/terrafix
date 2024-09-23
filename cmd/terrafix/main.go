@@ -35,7 +35,7 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, `usage: terrafix [options] root-module-path
 
-terrafix performs Terraform configuration modifications on the given Terraform provider.
+terrafix fixes user's terraform configurations to match the targeting provider's schema.
 `)
 		flag.PrintDefaults()
 	}
