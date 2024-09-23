@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // This file contains additional write-related methods for the MemFS and its related types
@@ -68,7 +67,11 @@ func (m *MemFS) Write(path *string) error {
 		if err != nil {
 			return err
 		}
-		ep := strings.Replace(path, m.basePath, p, 1)
+		rp, err := filepath.Rel(m.basePath, path)
+		if err != nil {
+			return err
+		}
+		ep := filepath.Join(p, rp)
 		info, err := d.Info()
 		if err != nil {
 			return err
