@@ -11,7 +11,7 @@ import (
 )
 
 func TestMemFS(t *testing.T) {
-	memfs, err := filesystem.NewMemFS("testdata")
+	memfs, err := filesystem.NewMemFS("testdata", nil)
 	require.NoError(t, err)
 
 	///////////////////////
@@ -65,11 +65,11 @@ func TestMemFS(t *testing.T) {
 
 	// Write to a tempdir on OS
 	tmpdir := t.TempDir()
-	require.NoError(t, memfs.WriteToOS(&tmpdir))
+	require.NoError(t, memfs.Write(&tmpdir))
 
 	// Check the memfs created from this new tempdir is the same as the prior one,
 	// except the baseDir and the modtime
-	newMemfs, err := filesystem.NewMemFS(filepath.Join(tmpdir, "testdata"))
+	newMemfs, err := filesystem.NewMemFS(filepath.Join(tmpdir, "testdata"), nil)
 	require.NoError(t, err)
 
 	info, err = newMemfs.Stat(filepath.Join(tmpdir, "testdata"))

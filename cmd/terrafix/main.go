@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-version"
@@ -17,22 +20,29 @@ import (
 )
 
 type FlagSet struct {
-	ModulePath   string
 	ProviderPath string
 	ProviderAddr string
+	Output       string
 	LogLevel     string
 }
 
 func main() {
 	var fset FlagSet
-	flag.StringVar(&fset.ModulePath, "path", ".", "root module path")
 	flag.StringVar(&fset.ProviderAddr, "provider-addr", "", "fully qualified provider address")
 	flag.StringVar(&fset.ProviderPath, "provider-path", "", "path to the target provider executable")
+	flag.StringVar(&fset.Output, "output", "", "the output folder where the updated configs will be written to (by default writes to the stdout)")
 	flag.StringVar(&fset.LogLevel, "log-level", hclog.Error.String(), "log level")
+	flag.Usage = func() {
+		fmt.Fprint(os.Stderr, `usage: terrafix [options] root-module-path
+
+terrafix performs Terraform configuration modifications on the given Terraform provider.
+`)
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
-	if fset.ProviderAddr == "" {
-		log.Fatal(`"--provider-addr" is not specified`)
+	if l := len(flag.Args()); l != 1 {
+		log.Fatalf("expects one argument, got=%d", l)
 	}
 	if fset.ProviderPath == "" {
 		log.Fatal(`"--provider-path" is not specified`)
@@ -40,11 +50,20 @@ func main() {
 
 	ctx := context.Background()
 
+	modulePath := flag.Arg(0)
+	if fset.ProviderAddr == "" {
+		// Deduce the provider address via the provider executable name,
+		// and assuming it is namespaced by hashicorp.
+		// This is a shorthand only for hashicorp owned providers.
+		fset.ProviderAddr = "registry.terraform.io/hashicorp/" +
+			strings.TrimPrefix(filepath.Base(fset.ProviderPath), "terraform-provider-")
+	}
+
 	tfpath, err := find.FindTF(context.Background(), version.MustConstraints(version.NewConstraint(">=1.0.0")))
 	if err != nil {
 		log.Fatalf("finding terraform executable: %v", err)
 	}
-	tf, err := tfexec.NewTerraform(fset.ModulePath, tfpath)
+	tf, err := tfexec.NewTerraform(modulePath, tfpath)
 	if err != nil {
 		log.Fatalf("error running NewTerraform: %s", err)
 	}
@@ -74,7 +93,7 @@ func main() {
 		}
 	}
 
-	ctrl, err := ctrl.NewController(tf, fset.ModulePath, fset.ProviderAddr, fx)
+	ctrl, err := ctrl.NewController(tf, modulePath, fset.ProviderAddr, fx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -88,6 +107,15 @@ func main() {
 	}
 
 	if err := ctrl.FixDefinition(ctx); err != nil {
+		log.Fatal(err)
+	}
+
+	var odir *string
+	if fset.Output != "" {
+		odir = &fset.Output
+	}
+
+	if err := ctrl.Write(odir); err != nil {
 		log.Fatal(err)
 	}
 }

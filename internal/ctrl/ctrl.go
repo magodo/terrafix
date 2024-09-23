@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"os"
 	"path/filepath"
 
 	"github.com/hashicorp/hcl-lang/lang"
@@ -35,7 +36,7 @@ func NewController(tf *tfexec.Terraform, path string, paddr string, fixer fixer.
 		fixer: fixer,
 	}
 
-	fs, err := filesystem.NewMemFS(path)
+	fs, err := filesystem.NewMemFS(path, os.Stdout)
 	if err != nil {
 		return nil, fmt.Errorf("error new memory filesystem: %v", err)
 	}
@@ -144,7 +145,7 @@ func (ctrl *Controller) FixReferenceOrigins(ctx context.Context) error {
 			if err := ctrl.fs.WriteFile(fpath, nb, 0644); err != nil {
 				return fmt.Errorf("writing back the new content: %v", err)
 			}
-			fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
+			//fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
 		}
 	}
 
@@ -197,11 +198,17 @@ func (ctrl *Controller) FixDefinition(ctx context.Context) error {
 			if err := ctrl.fs.WriteFile(fpath, nb, 0644); err != nil {
 				return fmt.Errorf("writing back the new content: %v", err)
 			}
-			fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
+			//fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
 		}
 	}
 
 	return nil
+}
+
+// Write writes the current filesystem in memory to the path in OS.
+// If path is nil, it prints the file contents to the stdout.
+func (ctrl *Controller) Write(path *string) error {
+	return ctrl.fs.Write(path)
 }
 
 // filterDefinitionForMod filters the module's resource/data source definitions only if it belongs to the

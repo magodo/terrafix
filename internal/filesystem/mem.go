@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -21,7 +22,7 @@ func tfFilter(d fs.DirEntry) bool {
 	return strings.HasSuffix(d.Name(), ".tf")
 }
 
-func NewMemFS(path string) (*MemFS, error) {
+func NewMemFS(path string, w io.Writer) (*MemFS, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -31,7 +32,8 @@ func NewMemFS(path string) (*MemFS, error) {
 	}
 
 	memfs := MemFS{
-		basePath: path,
+		basePath:     path,
+		streamWriter: w,
 		memDir: &memDir{
 			fileinfo: NewFileInfo(info),
 		},

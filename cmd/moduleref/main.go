@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/hcl-lang/decoder"
@@ -28,7 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("error running NewTerraform: %s", err)
 	}
-	fs, err := filesystem.NewMemFS(rootModPath)
+	fs, err := filesystem.NewMemFS(rootModPath, os.Stdout)
 	if err != nil {
 		log.Fatalf("error new memory filesystem: %s", err)
 	}

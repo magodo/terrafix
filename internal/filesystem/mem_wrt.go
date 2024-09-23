@@ -1,10 +1,12 @@
 package filesystem
 
 import (
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // This file contains additional write-related methods for the MemFS and its related types
@@ -39,24 +41,34 @@ func (m *MemFS) WriteFile(name string, data []byte, perm fs.FileMode) error {
 	return err
 }
 
-// WriteToOS writes the whole FS to the target path.
-// If the path is nil, it writes to the original path that used to build the MemFS.
-func (m *MemFS) WriteToOS(path *string) error {
+// Write writes the whole FS to the target path.
+// If the path is nil, it writes to the streamWriter
+func (m *MemFS) Write(path *string) error {
 	var p string
 	if path == nil {
-		pwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		p = pwd
-	} else {
-		p = *path
+		return fs.WalkDir(m, m.basePath, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+			ep := filepath.Join(p, path)
+			b, err := m.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			m.streamWriter.Write([]byte(fmt.Sprintf("Path: %s\n\n%s\n", ep, string(b))))
+			return nil
+		})
 	}
+
+	p = *path
 	return fs.WalkDir(m, m.basePath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		ep := filepath.Join(p, path)
+		ep := strings.Replace(path, m.basePath, p, 1)
 		info, err := d.Info()
 		if err != nil {
 			return err

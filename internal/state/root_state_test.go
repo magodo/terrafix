@@ -25,7 +25,7 @@ func TestRootStateDecoder(t *testing.T) {
 	tf, err := tfexec.NewTerraform(rootModPath, tfpath)
 	require.NoError(t, err)
 
-	fs, err := filesystem.NewMemFS(rootModPath)
+	fs, err := filesystem.NewMemFS(rootModPath, nil)
 	require.NoError(t, err)
 
 	root, err := state.NewRootState(tf, fs, rootModPath)

@@ -13,7 +13,8 @@ import (
 var _ FS = &MemFS{}
 
 type MemFS struct {
-	basePath string
+	basePath     string
+	streamWriter io.Writer
 	*memDir
 }
 
