@@ -30,7 +30,7 @@ locals {
   ds_attribute_ref    = data.azurerm_resource_group.test.id
   attribute_ref       = azurerm_virtual_network.test.name
   ro_attribute_ref    = azurerm_virtual_network.test.id
-  block_attribute_ref = azurerm_virtual_network.test.encryption.0.enforcement
+  block_attribute_ref = azurerm_virtual_network.test.encryption[0].enforcement
 
   vnet_location = azurerm_virtual_network.test.location
 }
