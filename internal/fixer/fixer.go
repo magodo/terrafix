@@ -1,16 +1,18 @@
 package fixer
 
+import "context"
+
 type Fixer interface {
-	FixReferenceOrigins(FixReferenceOriginsRequest) FixReferenceOriginsResponse
-	FixDefinition(FixDefinitionRequest) FixDefinitionResponse
+	FixReferenceOrigins(context.Context, FixReferenceOriginsRequest) (*FixReferenceOriginsResponse, error)
+	FixDefinition(context.Context, FixDefinitionRequest) (*FixDefinitionResponse, error)
 }
 
-type BlockType int
+type BlockType string
 
 const (
-	BlockTypeProvider   BlockType = 0
-	BlockTypeResource   BlockType = 1
-	BlockTypeDataSource BlockType = 2
+	BlockTypeProvider   BlockType = "provider"
+	BlockTypeResource   BlockType = "resource"
+	BlockTypeDataSource BlockType = "datasource"
 )
 
 type FixReferenceOriginsRequest struct {
@@ -22,7 +24,6 @@ type FixReferenceOriginsRequest struct {
 }
 
 type FixReferenceOriginsResponse struct {
-	Error *string
 	// The updated raw HCL contents of each reference origin
 	RawContents [][]byte
 }
@@ -36,7 +37,6 @@ type FixDefinitionRequest struct {
 }
 
 type FixDefinitionResponse struct {
-	Error *string
 	// The updated raw HCL content of this block definition
 	RawContent []byte
 }

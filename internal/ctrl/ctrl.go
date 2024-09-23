@@ -1,7 +1,7 @@
 package ctrl
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"maps"
 	"path/filepath"
@@ -67,7 +67,7 @@ func (ctrl *Controller) UpdateRootState() error {
 	return nil
 }
 
-func (ctrl *Controller) FixReferenceOrigins() error {
+func (ctrl *Controller) FixReferenceOrigins(ctx context.Context) error {
 	for modPath, modState := range ctrl.rootState.ModuleStates {
 		origins, err := ctrl.filterOriginRefsForMod(modPath, modState)
 		if err != nil {
@@ -116,9 +116,9 @@ func (ctrl *Controller) FixReferenceOrigins() error {
 
 		updatesMap := map[string][]writer.Update{}
 		for reqtype, req := range reqs {
-			resp := ctrl.fixer.FixReferenceOrigins(req)
-			if resp.Error != nil {
-				return errors.New(*resp.Error)
+			resp, err := ctrl.fixer.FixReferenceOrigins(ctx, req)
+			if err != nil {
+				return fmt.Errorf("fixer fix reference origins: %v", err)
 			}
 			originRanges := originRangesMap[reqtype]
 
@@ -144,14 +144,14 @@ func (ctrl *Controller) FixReferenceOrigins() error {
 			if err := ctrl.fs.WriteFile(fpath, nb, 0644); err != nil {
 				return fmt.Errorf("writing back the new content: %v", err)
 			}
-			//fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
+			fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
 		}
 	}
 
 	return nil
 }
 
-func (ctrl *Controller) FixDefinition() error {
+func (ctrl *Controller) FixDefinition(ctx context.Context) error {
 	for modPath, modState := range ctrl.rootState.ModuleStates {
 		blks, err := ctrl.filterDefinitionForMod(modState)
 		if err != nil {
@@ -174,9 +174,9 @@ func (ctrl *Controller) FixDefinition() error {
 			default:
 				panic("unreachable")
 			}
-			resp := ctrl.fixer.FixDefinition(req)
-			if resp.Error != nil {
-				return errors.New(*resp.Error)
+			resp, err := ctrl.fixer.FixDefinition(ctx, req)
+			if err != nil {
+				return fmt.Errorf("fixer fix definition: %v", err)
 			}
 			updatesMap[filename] = append(updatesMap[filename], writer.Update{
 				Range:   blk.Range(),
@@ -197,7 +197,7 @@ func (ctrl *Controller) FixDefinition() error {
 			if err := ctrl.fs.WriteFile(fpath, nb, 0644); err != nil {
 				return fmt.Errorf("writing back the new content: %v", err)
 			}
-			//fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
+			fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
 		}
 	}
 

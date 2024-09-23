@@ -1,6 +1,7 @@
 package fixer
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hashicorp/hcl/v2"
@@ -13,29 +14,27 @@ type DummyFixer struct{}
 
 var _ Fixer = DummyFixer{}
 
-func (d DummyFixer) FixDefinition(req FixDefinitionRequest) FixDefinitionResponse {
+func (d DummyFixer) FixDefinition(_ context.Context, req FixDefinitionRequest) (*FixDefinitionResponse, error) {
 	sf, diags := hclsyntax.ParseConfig(req.RawContent, "", hcl.InitialPos)
 	if diags.HasErrors() {
-		err := diags.Error()
-		return FixDefinitionResponse{Error: &err}
+		return nil, fmt.Errorf(diags.Error())
 	}
 	_ = sf
 
 	wf, diags := hclwrite.ParseConfig(req.RawContent, "", hcl.InitialPos)
 	if diags.HasErrors() {
-		err := diags.Error()
-		return FixDefinitionResponse{Error: &err}
+		return nil, fmt.Errorf(diags.Error())
 	}
 	wf.Body().Blocks()[0].Body().SetAttributeValue("undefined", cty.StringVal("foo"))
 
-	return FixDefinitionResponse{RawContent: wf.Bytes()}
+	return &FixDefinitionResponse{RawContent: wf.Bytes()}, nil
 }
 
-func (d DummyFixer) FixReferenceOrigins(req FixReferenceOriginsRequest) FixReferenceOriginsResponse {
+func (d DummyFixer) FixReferenceOrigins(_ context.Context, req FixReferenceOriginsRequest) (*FixReferenceOriginsResponse, error) {
 	var contents [][]byte
 	for _, origin := range req.RawContents {
 		origin = []byte(fmt.Sprintf(`"${%s.undefined}"`, origin))
 		contents = append(contents, origin)
 	}
-	return FixReferenceOriginsResponse{RawContents: contents}
+	return &FixReferenceOriginsResponse{RawContents: contents}, nil
 }
