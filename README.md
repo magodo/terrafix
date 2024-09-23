@@ -1,8 +1,10 @@
+**In development**
+
 # terrafix
 
 A tool to fix user's terraform configurations to match the targeting provider's schema.
 
-# TODO
+## TODO
 
 - [ ] Correctly pass the schema version (currently it is always 0)
 - [ ] Fixer: provider SDK for easier onboarding
