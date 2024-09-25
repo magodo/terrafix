@@ -22,7 +22,7 @@ var _ Fixer = ProviderFixer{}
 
 func (p ProviderFixer) FixDefinition(ctx context.Context, req FixDefinitionRequest) (*FixDefinitionResponse, error) {
 	resp, diags := p.tfc.CallFunction(ctx, typ.CallFunctionRequest{
-		FunctionName: "upgrade_config_definition",
+		FunctionName: "terrafix_config_definition",
 		Arguments: []cty.Value{
 			cty.StringVal(string(req.BlockType)),
 			cty.StringVal(req.BlockName),
@@ -45,7 +45,7 @@ func (p ProviderFixer) FixReferenceOrigins(ctx context.Context, req FixReference
 		contents = append(contents, cty.StringVal(string(content)))
 	}
 	resp, diags := p.tfc.CallFunction(ctx, typ.CallFunctionRequest{
-		FunctionName: "upgrade_config_references",
+		FunctionName: "terrafix_config_references",
 		Arguments: []cty.Value{
 			cty.StringVal(string(req.BlockType)),
 			cty.StringVal(req.BlockName),
