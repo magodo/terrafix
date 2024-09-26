@@ -69,23 +69,21 @@ func TestMemFS(t *testing.T) {
 
 	// Check the memfs created from this new tempdir is the same as the prior one,
 	// except the baseDir and the modtime
-	newMemfs, err := filesystem.NewMemFS(filepath.Join(tmpdir, "testdata"), nil)
+	newMemfs, err := filesystem.NewMemFS(tmpdir, nil)
 	require.NoError(t, err)
 
-	info, err = newMemfs.Stat(filepath.Join(tmpdir, "testdata"))
+	info, err = newMemfs.Stat(filepath.Join(tmpdir, "a.tf"))
 	require.NoError(t, err)
-	info, err = newMemfs.Stat(filepath.Join(tmpdir, "testdata/a.tf"))
+	info, err = newMemfs.Stat(filepath.Join(tmpdir, "module"))
 	require.NoError(t, err)
-	info, err = newMemfs.Stat(filepath.Join(tmpdir, "testdata/module"))
-	require.NoError(t, err)
-	info, err = newMemfs.Stat(filepath.Join(tmpdir, "testdata/module/b.tf"))
+	info, err = newMemfs.Stat(filepath.Join(tmpdir, "module/b.tf"))
 	require.NoError(t, err)
 
-	b, err = newMemfs.ReadFile(filepath.Join(tmpdir, "testdata/a.tf"))
+	b, err = newMemfs.ReadFile(filepath.Join(tmpdir, "a.tf"))
 	require.NoError(t, err)
 	require.Equal(t, newContent, b)
 
-	b, err = newMemfs.ReadFile(filepath.Join(tmpdir, "testdata/module/b.tf"))
+	b, err = newMemfs.ReadFile(filepath.Join(tmpdir, "module/b.tf"))
 	require.NoError(t, err)
 	require.Equal(t, eb, b)
 }
