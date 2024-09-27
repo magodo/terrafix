@@ -28,10 +28,10 @@ type FlagSet struct {
 
 func main() {
 	var fset FlagSet
-	flag.StringVar(&fset.ProviderAddr, "provider-addr", "", "fully qualified provider address")
-	flag.StringVar(&fset.ProviderPath, "provider-path", "", "path to the target provider executable")
-	flag.StringVar(&fset.Output, "output", "", "the output folder where the updated configs will be written to (by default writes to the stdout)")
-	flag.StringVar(&fset.LogLevel, "log-level", hclog.Error.String(), "log level")
+	flag.StringVar(&fset.ProviderAddr, "provider-addr", "", "The fully qualified provider address (e.g. registry.terraform.io/hashicorp/azurerm)")
+	flag.StringVar(&fset.ProviderPath, "provider-path", "", "The path to the target provider executable")
+	flag.StringVar(&fset.Output, "output", "", "The output folder where the updated configs will be written to (by default writes to the stdout)")
+	flag.StringVar(&fset.LogLevel, "log-level", hclog.Error.String(), "The log level")
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, `usage: terrafix [options] root-module-path
 

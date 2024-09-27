@@ -7,9 +7,9 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl-lang/reference"
-	"github.com/hashicorp/hcl-lang/schema"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
+	tfjson "github.com/hashicorp/terraform-json"
 	tfaddr "github.com/hashicorp/terraform-registry-address"
 	"github.com/hashicorp/terraform-schema/earlydecoder"
 	tfmodule "github.com/hashicorp/terraform-schema/module"
@@ -23,17 +23,25 @@ type ModuleState struct {
 
 	Files map[string]*hcl.File
 
-	Schema *schema.BodySchema
+	// The terraform state of the resources/data sources.
+	// Only the resource with no resource/module "count"/"for_each" used will be populated.
+	//
+	// The key is the relative resource address to the containing module, without the index part:
+	// - Absoulute address: [module.<module name>[\[index\]].][data.]<resource type>.<resource name>[\[<index>\]]
+	// - Relative address :                                   [data.]<resource type>.<resource name>
+	// (as we only support non-index addressed resources)
+	TFStateResources map[string]*tfjson.StateResource
 
 	OriginRefs reference.Origins
 	TargetRefs reference.Targets
 }
 
-func (s *RootState) AddModuleState(fs filesystem.FS, modPath string) error {
+func (s *RootState) AddModuleState(fs filesystem.FS, modPath string, tfstate *tfjson.StateModule) error {
 	state := ModuleState{
 		SourceAddr: tfmodule.LocalSourceAddr(modPath),
 	}
 
+	// ModuleState: Files
 	files := map[string]*hcl.File{}
 	es, err := fs.ReadDir(modPath)
 	if err != nil {
@@ -55,11 +63,28 @@ func (s *RootState) AddModuleState(fs filesystem.FS, modPath string) error {
 	}
 	state.Files = files
 
+	// ModuleState: Meta
 	meta, diags := earlydecoder.LoadModule(modPath, files)
 	if diags.HasErrors() {
 		return fmt.Errorf("earlydecoder load module %q: %v", modPath, diags.Error())
 	}
 	state.Meta = *meta
+
+	// ModuleState: TFState
+	tfStateResources := map[string]*tfjson.StateResource{}
+	if tfstate != nil {
+		for _, res := range tfstate.Resources {
+			if res.Index != nil {
+				continue
+			}
+			relResAddr := res.Type + "." + res.Name
+			if res.Mode == tfjson.DataResourceMode {
+				relResAddr = "data." + relResAddr
+			}
+			tfStateResources[relResAddr] = res
+		}
+	}
+	state.TFStateResources = tfStateResources
 
 	// Add the the partially built module state into the root state.
 	// The Origin/Target Refs will be updated once all the modules are added.
@@ -72,13 +97,33 @@ func (s *RootState) AddModuleState(fs filesystem.FS, modPath string) error {
 		return fmt.Errorf("getting declared module calls for %q failed: %v", modPath, err)
 	}
 	var errs *multierror.Error
-	for _, mc := range declared {
+	for localName, mc := range declared {
 		var mcPath string
+		var modState *tfjson.StateModule
 		switch source := mc.SourceAddr.(type) {
 		// For local module sources, we can construct the path directly from the configuration
 		case tfmodule.LocalSourceAddr:
 			mcPath = filepath.Join(modPath, filepath.FromSlash(source.String()))
 
+			if tfstate != nil {
+				// The module address in tfjson follows the following pattern:
+				// [module.<local name>[\[index\]].]...
+				// E.g. module.a[0].module.b.module.c[0]
+				// We only supports modules with no indexed-address.
+				for _, cm := range tfstate.ChildModules {
+					// Simply split by "." as "." won't appear in the module name
+					segs := strings.Split(cm.Address, ".")
+					modName := segs[len(segs)-1]
+					if bracketIdx := strings.Index(modName, "["); bracketIdx != -1 {
+						continue
+					}
+
+					if localName == modName {
+						modState = cm
+						break
+					}
+				}
+			}
 		// For registry modules, we need to find the local installation path (if installed)
 		case tfaddr.Module:
 			// installedDir, ok := s.InstalledModulePath(modPath, source.String())
@@ -116,7 +161,7 @@ func (s *RootState) AddModuleState(fs filesystem.FS, modPath string) error {
 			continue
 		}
 
-		if err := s.AddModuleState(fs, mcPath); err != nil {
+		if err := s.AddModuleState(fs, mcPath, modState); err != nil {
 			multierror.Append(errs, fmt.Errorf("add module state for %q: %v", mcPath, err))
 		}
 	}

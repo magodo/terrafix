@@ -2,11 +2,13 @@ package fixer
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/hclwrite"
+	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -26,6 +28,18 @@ func (d DummyFixer) FixDefinition(_ context.Context, req FixDefinitionRequest) (
 		return nil, fmt.Errorf(diags.Error())
 	}
 	wf.Body().Blocks()[0].Body().SetAttributeValue("undefined", cty.StringVal("foo"))
+
+	var state *tfjson.StateResource
+	if len(req.State) != 0 {
+		var tstate tfjson.StateResource
+		if err := json.Unmarshal(req.State, &tstate); err != nil {
+			return nil, err
+		}
+		state = &tstate
+	}
+	if state != nil {
+		wf.Body().Blocks()[0].Body().SetAttributeValue("id", cty.StringVal(state.AttributeValues["id"].(string)))
+	}
 
 	return &FixDefinitionResponse{RawContent: wf.Bytes()}, nil
 }
