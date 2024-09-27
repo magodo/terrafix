@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/hashicorp/hcl-lang/lang"
 	"github.com/hashicorp/hcl-lang/schema"
 	"github.com/hashicorp/terraform-exec/tfexec"
+	tfjson "github.com/hashicorp/terraform-json"
 	tfaddr "github.com/hashicorp/terraform-registry-address"
 	tfmodule "github.com/hashicorp/terraform-schema/module"
 	"github.com/hashicorp/terraform-schema/registry"
@@ -87,9 +89,21 @@ func NewRootState(tf *tfexec.Terraform, fs filesystem.FS, path string) (*RootSta
 	rootState.ModuleManifest = mm
 	rootState.InstalledModules = InstalledModulesFromManifest(mm)
 
+	// Terraform State
+	var tfStateModule *tfjson.StateModule
+	if _, err := os.Stat(filepath.Join(path, "terraform.tfstate")); err == nil {
+		tfstate, err := tf.ShowStateFile(ctx, "terraform.tfstate")
+		if err != nil {
+			return nil, fmt.Errorf("showing state file: %v", err)
+		}
+		if tfstate != nil && tfstate.Values != nil {
+			tfStateModule = tfstate.Values.RootModule
+		}
+	}
+
 	// Add module states
 	rootState.ModuleStates = map[string]*ModuleState{}
-	if err := rootState.AddModuleState(fs, path); err != nil {
+	if err := rootState.AddModuleState(fs, path, tfStateModule); err != nil {
 		return nil, fmt.Errorf("add module state for %q: %v", path, err)
 	}
 
@@ -131,18 +145,18 @@ func (s *RootState) DeclaredModuleCalls(modPath string) (map[string]tfmodule.Dec
 	}
 
 	// Not sure why, but copied from: https://github.com/hashicorp/terraform-ls/blob/abe92f01988de5445556fe1576765cb8f1cb80d9/internal/features/modules/state/module_store.go#L171-L181
-	declared := make(map[string]tfmodule.DeclaredModuleCall)
-	for _, mc := range ms.Meta.ModuleCalls {
-		declared[mc.LocalName] = tfmodule.DeclaredModuleCall{
-			LocalName:     mc.LocalName,
-			RawSourceAddr: mc.RawSourceAddr,
-			SourceAddr:    mc.SourceAddr,
-			Version:       mc.Version,
-			InputNames:    mc.InputNames,
-			RangePtr:      mc.RangePtr,
-		}
-	}
-	return declared, nil
+	// declared := make(map[string]tfmodule.DeclaredModuleCall)
+	// for _, mc := range ms.Meta.ModuleCalls {
+	// 	declared[mc.LocalName] = tfmodule.DeclaredModuleCall{
+	// 		LocalName:     mc.LocalName,
+	// 		RawSourceAddr: mc.RawSourceAddr,
+	// 		SourceAddr:    mc.SourceAddr,
+	// 		Version:       mc.Version,
+	// 		InputNames:    mc.InputNames,
+	// 		RangePtr:      mc.RangePtr,
+	// 	}
+	// }
+	return ms.Meta.ModuleCalls, nil
 }
 
 // InstalledModulePath implements schema.StateReader.
@@ -192,7 +206,6 @@ func (s *RootState) PathContext(path lang.Path) (*decoder.PathContext, error) {
 	if err != nil {
 		return nil, err
 	}
-	modState.Schema = schema
 
 	pathCtx := &decoder.PathContext{
 		Schema:           schema,

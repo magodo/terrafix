@@ -2,6 +2,7 @@ package ctrl
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"os"
@@ -167,13 +168,22 @@ func (ctrl *Controller) FixDefinition(ctx context.Context) error {
 				BlockName:  blk.Labels[0],
 				RawContent: blk.Range().SliceBytes(f.Bytes),
 			}
+			resAddr := blk.Labels[0] + "." + blk.Labels[1]
 			switch blk.Type {
 			case "data":
 				req.BlockType = fixer.BlockTypeDataSource
+				resAddr = "data." + resAddr
 			case "resource":
 				req.BlockType = fixer.BlockTypeResource
 			default:
 				panic("unreachable")
+			}
+			if tfState := modState.TFStateResources[resAddr]; tfState != nil {
+				b, err := json.Marshal(tfState)
+				if err != nil {
+					return fmt.Errorf("marshal tfstate for %s: %v", resAddr, err)
+				}
+				req.State = b
 			}
 			resp, err := ctrl.fixer.FixDefinition(ctx, req)
 			if err != nil {

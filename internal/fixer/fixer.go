@@ -34,6 +34,8 @@ type FixDefinitionRequest struct {
 	Version   int
 	// The raw HCL content of this block definition
 	RawContent []byte
+	// The Terraform state (only available for resource and data source)
+	State []byte
 }
 
 type FixDefinitionResponse struct {
