@@ -28,6 +28,7 @@ func (p ProviderFixer) FixDefinition(ctx context.Context, req FixDefinitionReque
 			cty.StringVal(req.BlockName),
 			cty.NumberIntVal(int64(req.Version)),
 			cty.StringVal(string(req.RawContent)),
+			cty.StringVal(string(req.RawState)),
 		},
 	})
 	if diags.HasErrors() {

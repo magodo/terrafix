@@ -183,7 +183,7 @@ func (ctrl *Controller) FixDefinition(ctx context.Context) error {
 				if err != nil {
 					return fmt.Errorf("marshal tfstate for %s: %v", resAddr, err)
 				}
-				req.State = b
+				req.RawState = b
 			}
 			resp, err := ctrl.fixer.FixDefinition(ctx, req)
 			if err != nil {

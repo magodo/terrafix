@@ -30,9 +30,9 @@ func (d DummyFixer) FixDefinition(_ context.Context, req FixDefinitionRequest) (
 	wf.Body().Blocks()[0].Body().SetAttributeValue("undefined", cty.StringVal("foo"))
 
 	var state *tfjson.StateResource
-	if len(req.State) != 0 {
+	if len(req.RawState) != 0 {
 		var tstate tfjson.StateResource
-		if err := json.Unmarshal(req.State, &tstate); err != nil {
+		if err := json.Unmarshal(req.RawState, &tstate); err != nil {
 			return nil, err
 		}
 		state = &tstate
