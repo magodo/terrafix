@@ -31,7 +31,8 @@ type RootState struct {
 	CoreVersion *version.Version
 	CoreSchema  *schema.BodySchema
 
-	ProviderSchemas map[tfaddr.Provider]*tfschema.ProviderSchema
+	ProviderSchemas     map[tfaddr.Provider]*tfschema.ProviderSchema
+	ProviderSchemasJSON *tfjson.ProviderSchemas
 
 	ModuleManifest *datadir.ModuleManifest
 
@@ -71,6 +72,7 @@ func NewRootState(tf *tfexec.Terraform, fs filesystem.FS, path string) (*RootSta
 	if err != nil {
 		return nil, fmt.Errorf("terraform providers schema failed: %v", err)
 	}
+	rootState.ProviderSchemasJSON = providerSchemasJSON
 	providerSchemas := map[tfaddr.Provider]*tfschema.ProviderSchema{}
 
 	for paddr, providerSchemaJSON := range providerSchemasJSON.Schemas {

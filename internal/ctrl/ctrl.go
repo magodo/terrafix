@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/terraform-exec/tfexec"
+	tfjson "github.com/hashicorp/terraform-json"
 	tfaddr "github.com/hashicorp/terraform-registry-address"
 	tfschema "github.com/hashicorp/terraform-schema/schema"
 	"github.com/magodo/terrafix/internal/filesystem"
@@ -25,6 +26,7 @@ type Controller struct {
 	tf        *tfexec.Terraform
 	fs        *filesystem.MemFS
 	psch      *tfschema.ProviderSchema
+	pschJSON  *tfjson.ProviderSchema
 	path      string
 	rootState *state.RootState
 	fixer     fixer.Fixer
@@ -46,6 +48,16 @@ func NewController(tf *tfexec.Terraform, path string, paddr string, fixer fixer.
 	if err := ctrl.UpdateRootState(); err != nil {
 		return nil, err
 	}
+
+	pschJSON, ok := ctrl.rootState.ProviderSchemasJSON.Schemas[paddr]
+	if !ok {
+		possibles := []string{}
+		for v := range maps.Keys(ctrl.rootState.ProviderSchemasJSON.Schemas) {
+			possibles = append(possibles, v)
+		}
+		return nil, fmt.Errorf("no provider schema (JSON) defined for %s, possible values include %v", paddr, possibles)
+	}
+	ctrl.pschJSON = pschJSON
 
 	psch, ok := ctrl.rootState.ProviderSchemas[tfaddr.MustParseProviderSource(paddr)]
 	if !ok {
@@ -79,6 +91,7 @@ func (ctrl *Controller) FixReferenceOrigins(ctx context.Context) error {
 		type ReqType struct {
 			BlockType fixer.BlockType
 			BlockName string
+			Version   int
 		}
 
 		// Combine origins belong to the same targeting to the same resource/data source into one request
@@ -91,8 +104,14 @@ func (ctrl *Controller) FixReferenceOrigins(ctx context.Context) error {
 			if origin.Addr[0].String() == "data" {
 				reqType.BlockType = fixer.BlockTypeDataSource
 				reqType.BlockName = origin.Addr[1].String()
+				if sch, ok := ctrl.pschJSON.DataSourceSchemas[reqType.BlockName]; ok {
+					reqType.Version = int(sch.Version)
+				}
 			} else {
 				reqType.BlockName = origin.Addr[0].String()
+				if sch, ok := ctrl.pschJSON.ResourceSchemas[reqType.BlockName]; ok {
+					reqType.Version = int(sch.Version)
+				}
 			}
 
 			req, ok := reqs[reqType]
@@ -100,7 +119,7 @@ func (ctrl *Controller) FixReferenceOrigins(ctx context.Context) error {
 				req = fixer.FixReferenceOriginsRequest{
 					BlockType:   reqType.BlockType,
 					BlockName:   reqType.BlockName,
-					Version:     0,
+					Version:     reqType.Version,
 					RawContents: [][]byte{},
 				}
 			}
@@ -164,17 +183,25 @@ func (ctrl *Controller) FixDefinition(ctx context.Context) error {
 		for _, blk := range blks {
 			filename := blk.Range().Filename
 			f := modState.Files[filename]
+			rt := blk.Labels[0]
+			rn := blk.Labels[1]
 			req := fixer.FixDefinitionRequest{
-				BlockName:  blk.Labels[0],
+				BlockName:  rt,
 				RawContent: blk.Range().SliceBytes(f.Bytes),
 			}
-			resAddr := blk.Labels[0] + "." + blk.Labels[1]
+			resAddr := rt + "." + rn
 			switch blk.Type {
 			case "data":
 				req.BlockType = fixer.BlockTypeDataSource
 				resAddr = "data." + resAddr
+				if sch, ok := ctrl.pschJSON.DataSourceSchemas[rt]; ok {
+					req.Version = int(sch.Version)
+				}
 			case "resource":
 				req.BlockType = fixer.BlockTypeResource
+				if sch, ok := ctrl.pschJSON.ResourceSchemas[rt]; ok {
+					req.Version = int(sch.Version)
+				}
 			default:
 				panic("unreachable")
 			}
