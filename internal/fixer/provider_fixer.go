@@ -2,6 +2,7 @@ package fixer
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/magodo/terraform-client-go/tfclient"
 	"github.com/magodo/terraform-client-go/tfclient/typ"
@@ -60,8 +61,15 @@ func (p ProviderFixer) FixReferenceOrigins(ctx context.Context, req FixReference
 	if resp.Err != nil {
 		return nil, diags.Err()
 	}
+	if resp.Result.IsNull() {
+		return nil, fmt.Errorf("the provider returns null result, which is a provider bug.")
+	}
+	l := resp.Result.AsValueSlice()
+	if len(l) != len(req.RawContents) {
+		return nil, fmt.Errorf("the provider's response length doesn't match the request length %d, got=%d, which is a provider bug.", len(req.RawContents), len(l))
+	}
 	var updatedContents [][]byte
-	for _, content := range resp.Result.AsValueSlice() {
+	for _, content := range l {
 		updatedContents = append(updatedContents, []byte(content.AsString()))
 	}
 	return &FixReferenceOriginsResponse{RawContents: updatedContents}, nil
