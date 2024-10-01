@@ -69,5 +69,5 @@ func TestCtrl(t *testing.T) {
 	require.NoError(t, ctrl.UpdateRootState())
 	require.NoError(t, ctrl.FixDefinition(ctx))
 	require.Equal(t, 6, defN)
-	require.Equal(t, 11, refN)
+	require.Equal(t, 12, refN)
 }

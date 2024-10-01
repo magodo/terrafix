@@ -30,6 +30,7 @@ resource "azurerm_container_registry" "test" {
 
 locals {
   vnet_location = azurerm_virtual_network.test.location
+  vnet_guid     = azurerm_virtual_network.test.guid
 }
 
 module "test" {
