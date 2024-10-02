@@ -46,7 +46,7 @@ The users can use this tool to fearlessly upgrade the provider, with the configu
 
 ### Ad-hoc Batch Modifications
 
-We will provide a dummy provider codebase, that users are supposed to implement arbitrary config fix logic as they wish.
+We've provided a dummy provider codebase [terraform-provider-fix](https://github.com/magodo/terraform-provider-fix), that users can clone and implement arbitrary config fix logics as they wish and run the `terrafix` tool against this provider. This allows users to programmably refactor the resource definitions and their references consistently.
 
 ## Notes
 
@@ -54,3 +54,26 @@ We will provide a dummy provider codebase, that users are supposed to implement 
 - Some breaking changes maps the value of an attribute to a different value sets. If the original value is not a literal value, the mapped new value is only known at run-time. Fortunately, since we will also provide the state of the resource to the provider for the config upgrade, which can be used to map to the new value. Alternatively, the provider can define this transformation in a new provider function, and take the call to this function as the new value.
 - Reference that contain index (due to the use of `for_each` or `count`) won’t be recognized for now. This probably is a bug in the underlying [`github.com/hashicorp/hcl-lang`](http://github.com/hashicorp/hcl-lang) module.
 - As is mentioned, the config definition request will send the terraform state of the resource to the provider, as long as there is NOT any index use along the address to this resource (due to the use of `for_each` or `count`, for either the resource or the module). The rationale behind this is that the tool aims to update the configuration, which is one piece of code, no matter it is a single instance, or a collection of instances. For the latter case, the state is meaningless to be consulted.
+
+## Examples
+
+### terraform-provider-fix based
+
+Checkout the [README.md](https://github.com/magodo/terraform-provider-fix/) for a dummy example targeting the `terraform-provider-null` provider.
+
+### terraform-provider-azurerm based
+
+Checkout the [commit](https://github.com/magodo/terraform-provider-azurerm/tree/e580a64e42dd1e4a1c4fd1a7a11b4eed23d90730) for the `terraform-provider-azurerm`, based on its v4.2.0. This commit includes the following changes:
+
+1. Introduces breaking changes to the `azurerm_virtual_network` resource:
+    1. Rename the attribute `guid` to `uuid`
+    2. Extends the attribute `location` (a string) to `locations` (a list of strings)
+    3. Update the schema version from 0 to 1
+2. Introduces one more breaking change to the `azurerm_virtual_network` resource:
+    1. Changes the attribute `guid` from computed only to required
+    2. Update the schema version from 1 to 2
+3. Opt in `terrafix` functionality by implementing the provider functions based on `terrafix-sdk`
+
+The goal is to have a smooth provider upgrade experience from v4.2.0, to this commit. Based on the module at https://github.com/magodo/terrafix/tree/b291406afdbb9002e63ed0b0bebb84a7a02d3d01/internal/ctrl/testdata/module (with the state).
+
+You can try this example out via following the steps mentioned in the **How** section.
