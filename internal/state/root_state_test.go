@@ -356,7 +356,7 @@ func TestRootStateDecoder(t *testing.T) {
 	}
 }
 
-func TestNewRootStatePopulateTFState(t *testing.T) {
+func TestNewRootState_PopulateTFState(t *testing.T) {
 	rootModPath := "testdata/nested_modules"
 	tfpath, err := find.FindTF(context.Background(), version.MustConstraints(version.NewConstraint(">=1.0.0")))
 	require.NoError(t, err)
@@ -380,4 +380,18 @@ func TestNewRootStatePopulateTFState(t *testing.T) {
 	require.Len(t, mod2.TFStateResources, 2)
 	require.NotNil(t, mod2.TFStateResources["azurerm_resource_group.test"])
 	require.NotNil(t, mod2.TFStateResources["data.azurerm_resource_group.test"])
+}
+
+func TestNewRootState_RemoteModule(t *testing.T) {
+	rootModPath := "testdata/remote_module"
+	tfpath, err := find.FindTF(context.Background(), version.MustConstraints(version.NewConstraint(">=1.0.0")))
+	require.NoError(t, err)
+	tf, err := tfexec.NewTerraform(rootModPath, tfpath)
+	require.NoError(t, err)
+
+	fs, err := filesystem.NewMemFS(rootModPath, nil)
+	require.NoError(t, err)
+
+	_, err = state.NewRootState(tf, fs, rootModPath)
+	require.NoError(t, err)
 }
