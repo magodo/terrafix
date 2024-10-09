@@ -42,6 +42,7 @@ type RootState struct {
 
 	// ModuleStates includes states of each module, keyed by module path.
 	// Especially, the "." key represents the root module.
+	//
 	// TODO: Shall we use tfmodule.ModuleSourceAddr instead?
 	ModuleStates map[string]*ModuleState
 }
@@ -188,7 +189,8 @@ func (s *RootState) ProviderSchema(modPath string, addr tfaddr.Provider, vc vers
 
 // RegistryModuleMeta implements schema.StateReader.
 func (s *RootState) RegistryModuleMeta(addr tfaddr.Module, cons version.Constraints) (*registry.ModuleData, error) {
-	panic("RegistryModuleMeta unimplemented")
+	// By returning an error, the remote module will just be skipped
+	return nil, fmt.Errorf("RegistryModuleMeta unimplemented")
 }
 
 var _ decoder.PathReader = &RootState{}

@@ -165,7 +165,6 @@ func (ctrl *Controller) FixReferenceOrigins(ctx context.Context) error {
 			if err := ctrl.fs.WriteFile(fpath, nb, 0644); err != nil {
 				return fmt.Errorf("writing back the new content: %v", err)
 			}
-			//fmt.Printf("Updated %s\n\n%s\n", fpath, string(nb))
 		}
 	}
 
@@ -319,14 +318,12 @@ func (ctrl *Controller) filterBlock(blk *hcl.Block) (bool, error) {
 		if len(blk.Labels) != 2 {
 			return false, fmt.Errorf("invalid resource definition at %s: label length is not 2", blk.DefRange)
 		}
-		// The target doesn't belong to the interested provider
 		_, ok := ctrl.psch.Resources[blk.Labels[0]]
 		return ok, nil
 	case "data":
 		if len(blk.Labels) != 2 {
 			return false, fmt.Errorf("invalid data source definition at %s: label length is not 2", blk.DefRange)
 		}
-		// The target doesn't belong to the interested provider
 		_, ok := ctrl.psch.DataSources[blk.Labels[0]]
 		return ok, nil
 	default:

@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	tfjson "github.com/hashicorp/terraform-json"
-	tfaddr "github.com/hashicorp/terraform-registry-address"
 	"github.com/hashicorp/terraform-schema/earlydecoder"
 	tfmodule "github.com/hashicorp/terraform-schema/module"
 	"github.com/magodo/terrafix/internal/filesystem"
@@ -124,30 +123,8 @@ func (s *RootState) AddModuleState(fs filesystem.FS, modPath string, tfstate *tf
 					}
 				}
 			}
-		// For registry modules, we need to find the local installation path (if installed)
-		case tfaddr.Module:
-			// installedDir, ok := s.InstalledModulePath(modPath, source.String())
-			// if !ok {
-			// 	continue
-			// }
-			// mcPath = filepath.Join(modPath, filepath.FromSlash(installedDir))
-
-			// Only local module is taken into consideration as it is mutable
-			continue
-
-		// For other remote modules, we need to find the local installation path (if installed)
-		case tfmodule.RemoteSourceAddr:
-			// installedDir, ok := s.InstalledModulePath(modPath, source.String())
-			// if !ok {
-			// 	continue
-			// }
-			// mcPath = filepath.Join(modPath, filepath.FromSlash(installedDir))
-
-			// Only local module is taken into consideration as it is mutable
-			continue
-
 		default:
-			// Unknown source address, we can't resolve the path
+			// Only local module is taken into consideration as it is mutable
 			continue
 		}
 
