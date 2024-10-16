@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform-exec/tfexec"
+	tfaddr "github.com/hashicorp/terraform-registry-address"
 	"github.com/magodo/terrafix/internal/ctrl"
 	"github.com/magodo/terrafix/internal/fixer"
 	"github.com/magodo/terrafix/internal/terraform/find"
@@ -20,18 +21,24 @@ import (
 )
 
 type FlagSet struct {
-	ProviderPath string
-	ProviderAddr string
-	Output       string
-	LogLevel     string
+	ProviderPath      string
+	ProviderAddr      string
+	Output            string
+	LogLevel          string
+	SkipFixReference  bool
+	SkipFixDefinition bool
 }
 
 func main() {
 	var fset FlagSet
+
 	flag.StringVar(&fset.ProviderAddr, "provider-addr", "", "The fully qualified provider address (e.g. registry.terraform.io/hashicorp/azurerm)")
 	flag.StringVar(&fset.ProviderPath, "provider-path", "", "The path to the target provider executable")
 	flag.StringVar(&fset.Output, "output", "", "The output folder where the updated configs will be written to (by default writes to the stdout)")
 	flag.StringVar(&fset.LogLevel, "log-level", hclog.Error.String(), "The log level")
+	flag.BoolVar(&fset.SkipFixReference, "skip-fix-reference", false, "Whether to skip fixing the reference")
+	flag.BoolVar(&fset.SkipFixDefinition, "skip-fix-definition", false, "Whether to skip fixing the definition")
+
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, `usage: terrafix [options] root-module-path
 
@@ -93,21 +100,35 @@ terrafix fixes user's terraform configurations to match the targeting provider's
 		}
 	}
 
-	ctrl, err := ctrl.NewController(tf, modulePath, fset.ProviderAddr, fx)
+	paddr, err := tfaddr.ParseProviderSource(fset.ProviderAddr)
+	if err != nil {
+		log.Fatalf("failed to parse provider addr %q: %v", fset.ProviderAddr, err)
+	}
+
+	ctrl, err := ctrl.NewController(ctrl.Option{
+		Path:         modulePath,
+		ProviderAddr: paddr,
+		TF:           tf,
+		Fixer:        fx,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if err := ctrl.FixReferenceOrigins(ctx); err != nil {
-		log.Fatal(err)
+	if !fset.SkipFixReference {
+		if err := ctrl.FixReferenceOrigins(ctx); err != nil {
+			log.Fatal(err)
+		}
+
+		if err := ctrl.UpdateRootState(); err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	if err := ctrl.UpdateRootState(); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := ctrl.FixDefinition(ctx); err != nil {
-		log.Fatal(err)
+	if !fset.SkipFixDefinition {
+		if err := ctrl.FixDefinition(ctx); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	var odir *string

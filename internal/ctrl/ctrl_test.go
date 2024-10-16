@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform-exec/tfexec"
+	tfaddr "github.com/hashicorp/terraform-registry-address"
 	"github.com/magodo/terrafix/internal/ctrl"
 	"github.com/magodo/terrafix/internal/fixer"
 	"github.com/magodo/terrafix/internal/terraform/find"
@@ -61,7 +62,12 @@ func TestCtrl(t *testing.T) {
 		},
 	}
 
-	ctrl, err := ctrl.NewController(tf, rootModPath, "registry.terraform.io/hashicorp/azurerm", fx)
+	ctrl, err := ctrl.NewController(ctrl.Option{
+		Path:         rootModPath,
+		ProviderAddr: tfaddr.MustParseProviderSource("registry.terraform.io/hashicorp/azurerm"),
+		TF:           tf,
+		Fixer:        fx,
+	})
 	require.NoError(t, err)
 
 	ctx := context.Background()

@@ -14,7 +14,6 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/terraform-exec/tfexec"
 	tfjson "github.com/hashicorp/terraform-json"
-	tfaddr "github.com/hashicorp/terraform-registry-address"
 	tfschema "github.com/hashicorp/terraform-schema/schema"
 	"github.com/magodo/terrafix/internal/filesystem"
 	"github.com/magodo/terrafix/internal/fixer"
@@ -32,14 +31,14 @@ type Controller struct {
 	fixer     fixer.Fixer
 }
 
-func NewController(tf *tfexec.Terraform, path string, paddr string, fixer fixer.Fixer) (*Controller, error) {
+func NewController(opt Option) (*Controller, error) {
 	ctrl := Controller{
-		tf:    tf,
-		path:  path,
-		fixer: fixer,
+		tf:    opt.TF,
+		path:  opt.Path,
+		fixer: opt.Fixer,
 	}
 
-	fs, err := filesystem.NewMemFS(path, os.Stdout)
+	fs, err := filesystem.NewMemFS(opt.Path, os.Stdout)
 	if err != nil {
 		return nil, fmt.Errorf("error new memory filesystem: %v", err)
 	}
@@ -49,7 +48,8 @@ func NewController(tf *tfexec.Terraform, path string, paddr string, fixer fixer.
 		return nil, err
 	}
 
-	pschJSON, ok := ctrl.rootState.ProviderSchemasJSON.Schemas[paddr]
+	paddr := opt.ProviderAddr
+	pschJSON, ok := ctrl.rootState.ProviderSchemasJSON.Schemas[paddr.String()]
 	if !ok {
 		possibles := []string{}
 		for v := range maps.Keys(ctrl.rootState.ProviderSchemasJSON.Schemas) {
@@ -59,7 +59,7 @@ func NewController(tf *tfexec.Terraform, path string, paddr string, fixer fixer.
 	}
 	ctrl.pschJSON = pschJSON
 
-	psch, ok := ctrl.rootState.ProviderSchemas[tfaddr.MustParseProviderSource(paddr)]
+	psch, ok := ctrl.rootState.ProviderSchemas[paddr]
 	if !ok {
 		possibles := []string{}
 		for v := range maps.Keys(ctrl.rootState.ProviderSchemas) {
